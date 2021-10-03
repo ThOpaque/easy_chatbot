@@ -8,7 +8,7 @@ import pickle
 
 import numpy as np
 from keras.models import Sequential
-from keras.layers import Dense, Activation, Dropout
+from keras.layers import Dense, Dropout
 from tensorflow.keras.optimizers import SGD
 import random
 
@@ -44,9 +44,7 @@ words = sorted(list(set(words)))
 classes = sorted(list(set(classes)))
 
 print (len(documents), "documents")
-
 print (len(classes), "classes", classes)
-
 print (len(words), "unique lemmatized words", words)
 
 # Writing words & classes in pickle files
@@ -90,18 +88,17 @@ train_y = list(training[:,1])
 print("Training data created")
 
 
-
-
-
-
-
-
+#############################################################################
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 import datetime
+
+device = (torch.device('cuda') if torch.cuda.is_available() 
+          else torch.device('cpu'))
+print(f"Training on device {device}.")
+
 
 class Model(nn.Module):
     def __init__(self, nb_neurones=128):
@@ -123,8 +120,7 @@ class Model(nn.Module):
         out = self.dropout(out)
         out = self.relu(self.fct2(out))
         out = self.dropout(out)
-        #out = self.softmax(self.fct3(out))
-        out = self.fct3(out)
+        out = self.softmax(self.fct3(out))
         return out
 
 
@@ -136,39 +132,30 @@ def training_loop(n_epochs, optimizer, model, loss_fct, train_x_tensor, train_y_
     for epoch in range(1, n_epochs + 1):
         loss_train = 0
         
-        for k in train_x_tensor:
-            output = model(k)
-            
-            print('output : ', output.shape)
-            print('train_y_tensor : ', train_y_tensor.shape)
-            
-            break
-              
-            loss = loss_fct(output, train_y_tensor)
+        for x, y in zip(train_x_tensor, train_y_tensor):
+            x = x.to(device=device)
+            y = y.to(device=device)
+            output = model(x)
 
+            loss = nn.functional.binary_cross_entropy(output, y)
+            
             optimizer.zero_grad()
-            optimizer.backward()
+            loss.backward()
             optimizer.step()
             
             loss_train += loss.item()
             
-            print('k', k)
-            print('loss', loss)
-        
-        return output
-        break
         if epoch == 1 or epoch % 10 == 0:
             print('{} Epoch {}, Training loss {}'.format(
                 datetime.datetime.now(), epoch, loss_train / len(train_x_tensor)))
 
-        
-
-model_pt = Model()
-loss_fn = nn.CrossEntropyLoss()
+model_pt = Model().to(device=device)
+# loss_fn = nn.functional.binary_cross_entropy()
+loss_fn = nn.CrossEntropyLoss() # apparently useless
 optimizer = optim.SGD(model_pt.parameters(), lr=1e-2, weight_decay=1e-6, momentum=0.9, nesterov=True)
 
-output = training_loop(
-    n_epochs = 100,
+training_loop(
+    n_epochs = 200,
     optimizer = optimizer,
     model = model_pt,
     loss_fct = loss_fn,
@@ -176,27 +163,29 @@ output = training_loop(
     train_y_tensor = train_y_t
     )
 
+torch.save(model_pt.state_dict(), 'chatbot_model.pt')
+# torch.save(model_pt, 'chatbot_model.pt')
+print("Model created")
 
 
 
 
-
-
-# Create model - 3 layers. First layer 128 neurons, second layer 64 neurons and 3rd output layer contains number of neurons
-# equal to number of intents to predict output intent with softmax
-model = Sequential()
-model.add(Dense(128, input_shape=(len(train_x[0]),), activation='relu'))
-model.add(Dropout(0.5))
-model.add(Dense(64, activation='relu'))
-model.add(Dropout(0.5))
-model.add(Dense(len(train_y[0]), activation='softmax'))
-
-# Compile model. Stochastic gradient descent with Nesterov accelerated gradient gives good results for this model
-sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
-model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
-
-#fitting and saving the model
-hist = model.fit(np.array(train_x), np.array(train_y), epochs=200, batch_size=5, verbose=1)
-model.save('chatbot_model.h5', hist)
-
-print("model created")
+def keras():
+    # Create model - 3 layers. First layer 128 neurons, second layer 64 neurons and 3rd output layer contains number of neurons
+    # equal to number of intents to predict output intent with softmax
+    model = Sequential()
+    model.add(Dense(128, input_shape=(len(train_x[0]),), activation='relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(64, activation='relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(len(train_y[0]), activation='softmax'))
+    
+    # Compile model. Stochastic gradient descent with Nesterov accelerated gradient gives good results for this model
+    sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+    model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
+    
+    #fitting and saving the model
+    hist = model.fit(np.array(train_x), np.array(train_y), epochs=200, batch_size=5, verbose=1)
+    model.save('chatbot_model.h5', hist)
+    
+    print("model created")

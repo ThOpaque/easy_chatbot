@@ -171,6 +171,7 @@ print("Model created")
 
 
 def keras():
+    ### The same network with the Tensorflow library
     # Create model - 3 layers. First layer 128 neurons, second layer 64 neurons and 3rd output layer contains number of neurons
     # equal to number of intents to predict output intent with softmax
     model = Sequential()

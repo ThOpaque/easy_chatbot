@@ -75,7 +75,6 @@ def clean_up_sentence(sentence):
     sentence_words = [lemmatizer.lemmatize(word.lower()) for word in sentence_words]
     return sentence_words
 
-# 
 
 
 def bow(sentence, words, show_details=True):
@@ -135,7 +134,6 @@ def predict_class(sentence, model):
     ERROR_THRESHOLD = 0.25
     results = [[i, r] for i, r in enumerate(res) if r > ERROR_THRESHOLD]
     
-
     # sort by strength of probability
     results.sort(key=lambda x: x[1], reverse=True)
     return_list = []
